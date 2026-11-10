@@ -1,0 +1,7 @@
+# 編譯產物與測試 log 都可由 Makefile 重新產生，不納入版本控制。
+build/
+# Wireshark/tcpdump 擷取檔通常較大，依提交需求另行保存。
+*.pcap
+*.pcapng
+# macOS Finder 自動產生的目錄資訊檔。
+.DS_Store
