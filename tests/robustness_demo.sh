@@ -18,8 +18,9 @@ test_log "[SUITE] Robustness: 3 comparisons (mode=$MODE)"
 run_test()
 {
     test_log "$1"
+    test_command "sh $TEST_DIR/$2 $MODE"
     if sh "$TEST_DIR/$2" "$MODE"; then
-        test_log "[PASS] $3"
+        test_pass "$3"
     else
         TEST_STATUS=$?
         test_log "[FAIL] $3 (exit status=$TEST_STATUS)" >&2
@@ -31,5 +32,5 @@ run_test "[1/3] Test TCP request fragmentation." robustness_fragment.sh "TCP req
 run_test "[2/3] Test timeout when a client sends no request." robustness_timeout.sh "No-request timeout"
 run_test "[3/3] Test zombie-process reaping." robustness_zombie.sh "Zombie-process reaping"
 
-test_log "All three robustness comparisons passed (3/3)."
-test_log "Suite progress and results: $TEST_LOG"
+test_pass "All three robustness comparisons passed (3/3)."
+test_file "Suite progress and results: $TEST_LOG"

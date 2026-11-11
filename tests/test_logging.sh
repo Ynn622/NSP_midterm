@@ -15,3 +15,30 @@ test_log()
 {
     printf '%s\n' "$*" | tee -a "$TEST_LOG"
 }
+
+# 在真正執行外部程式前顯示完整命令，讓終端機截圖能直接證明測試步驟。
+test_command()
+{
+    DISPLAY_TEXT=$*
+    # 腳本仍使用絕對路徑執行；終端機只顯示以專案根目錄為基準的短路徑。
+    if [ -n "${ROOT:-}" ]; then
+        DISPLAY_TEXT=$(printf '%s\n' "$DISPLAY_TEXT" | sed "s|$ROOT|.|g")
+    fi
+    test_log "▶ COMMAND: $DISPLAY_TEXT"
+}
+
+# 統一測試成功訊息的圖示與格式。
+test_pass()
+{
+    test_log "🟢 PASS: $*"
+}
+
+# 統一標示測試證據、輸出目錄與 log 檔案。
+test_file()
+{
+    DISPLAY_TEXT=$*
+    if [ -n "${ROOT:-}" ]; then
+        DISPLAY_TEXT=$(printf '%s\n' "$DISPLAY_TEXT" | sed "s|$ROOT|.|g")
+    fi
+    test_log "📃 $DISPLAY_TEXT"
+}

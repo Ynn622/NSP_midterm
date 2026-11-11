@@ -39,6 +39,7 @@ start_server()
     BINARY=$1
     PORT_NUMBER=$2
     LOG_FILE=$3
+    test_command "$BINARY --port $PORT_NUMBER --timeout 2 --log-level info > $LOG_FILE 2>&1 &"
     "$BINARY" --port "$PORT_NUMBER" --timeout 2 --log-level info \
         >"$LOG_FILE" 2>&1 &
     SERVER_PID=$!
@@ -77,6 +78,7 @@ start_server "$BASELINE" 19105 "$OUTPUT_DIR/zombie-baseline-server.log"
 test_log "[2/5] Run 8 short PING connections, then count baseline zombie children."
 INDEX=1
 while [ "$INDEX" -le 8 ]; do
+    test_command "$CLIENT --port 19105 ping >> $OUTPUT_DIR/zombie-baseline-client.log 2>&1"
     if ! "$CLIENT" --port 19105 ping >>"$OUTPUT_DIR/zombie-baseline-client.log" 2>&1; then
         test_log "FAIL: baseline PING client $INDEX/8 failed; inspect $OUTPUT_DIR/zombie-baseline-client.log" >&2
         exit 1
@@ -85,11 +87,14 @@ while [ "$INDEX" -le 8 ]; do
     INDEX=$((INDEX + 1))
 done
 sleep 1
+test_command "ps -axo ppid=,stat= | awk -v parent=$SERVER_PID '\$1 == parent && \$2 ~ /^Z/'"
 BASELINE_ZOMBIES=$(count_zombie_children "$SERVER_PID")
 test_log "      Baseline zombie server children: $BASELINE_ZOMBIES"
+test_command "ps -axo ppid=,stat=,pid=,command= | awk -v parent=$SERVER_PID '\$1 == parent' > $OUTPUT_DIR/zombie-baseline-processes.txt"
 ps -axo ppid=,stat=,pid=,command= | \
     awk -v parent="$SERVER_PID" '$1 == parent' \
     >"$OUTPUT_DIR/zombie-baseline-processes.txt"
+test_file "Baseline process snapshot: $OUTPUT_DIR/zombie-baseline-processes.txt"
 cleanup
 
 test_log "[3/5] Start the robust server on port 19106 (SIGCHLD child reaper enabled)."
@@ -97,6 +102,7 @@ start_server "$SERVER" 19106 "$OUTPUT_DIR/zombie-robust-server.log"
 test_log "[4/5] Run the same 8 PING connections, then count robust zombie children."
 INDEX=1
 while [ "$INDEX" -le 8 ]; do
+    test_command "$CLIENT --port 19106 ping >> $OUTPUT_DIR/zombie-robust-client.log 2>&1"
     if ! "$CLIENT" --port 19106 ping >>"$OUTPUT_DIR/zombie-robust-client.log" 2>&1; then
         test_log "FAIL: robust PING client $INDEX/8 failed; inspect $OUTPUT_DIR/zombie-robust-client.log" >&2
         exit 1
@@ -105,11 +111,14 @@ while [ "$INDEX" -le 8 ]; do
     INDEX=$((INDEX + 1))
 done
 sleep 1
+test_command "ps -axo ppid=,stat= | awk -v parent=$SERVER_PID '\$1 == parent && \$2 ~ /^Z/'"
 ROBUST_ZOMBIES=$(count_zombie_children "$SERVER_PID")
 test_log "      Robust zombie server children: $ROBUST_ZOMBIES"
+test_command "ps -axo ppid=,stat=,pid=,command= | awk -v parent=$SERVER_PID '\$1 == parent' > $OUTPUT_DIR/zombie-robust-processes.txt"
 ps -axo ppid=,stat=,pid=,command= | \
     awk -v parent="$SERVER_PID" '$1 == parent' \
     >"$OUTPUT_DIR/zombie-robust-processes.txt"
+test_file "Robust process snapshot: $OUTPUT_DIR/zombie-robust-processes.txt"
 cleanup
 
 # 預期 baseline 至少一個 zombie，robust 則完全沒有。
@@ -120,7 +129,7 @@ if [ "$BASELINE_ZOMBIES" -lt 1 ] || [ "$ROBUST_ZOMBIES" -ne 0 ]; then
     test_log "FAIL: zombie comparison did not show the expected difference." >&2
     exit 1
 fi
-test_log "PASS: SIGCHLD + waitpid(WNOHANG) prevented zombies."
+test_pass "SIGCHLD + waitpid(WNOHANG) prevented zombies."
 
-test_log "Evidence saved in: $OUTPUT_DIR"
-test_log "Test progress and results: $TEST_LOG"
+test_file "Evidence directory: $OUTPUT_DIR"
+test_file "Test progress and results: $TEST_LOG"

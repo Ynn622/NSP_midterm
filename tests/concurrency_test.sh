@@ -55,6 +55,7 @@ fi
 
 # 啟動正式 server，log 寫入 build 目錄供報告與除錯使用。
 test_log "[1/5] Start the robust server on 127.0.0.1:$PORT."
+test_command "$SERVER --port $PORT --log-level info > $OUTPUT_DIR/server.log 2>&1 &"
 "$SERVER" --port "$PORT" --log-level info >"$OUTPUT_DIR/server.log" 2>&1 &
 SERVER_PID=$!
 sleep 1
@@ -70,6 +71,7 @@ START_TIME=$(date +%s)
 CLIENT_PIDS=""
 INDEX=1
 while [ "$INDEX" -le "$CLIENTS" ]; do
+    test_command "$CLIENT --port $PORT delay 3 > $OUTPUT_DIR/client-$INDEX.log 2>&1 &"
     "$CLIENT" --port "$PORT" delay 3 \
         >"$OUTPUT_DIR/client-$INDEX.log" 2>&1 &
     CLIENT_PIDS="$CLIENT_PIDS $!"
@@ -79,7 +81,9 @@ done
 # Client 尚在 DELAY 時擷取 process snapshot，證明 child 同時存在。
 test_log "[3/5] Observe the server children while all clients are waiting for replies."
 sleep 1
+test_command "ps -axo ppid=,stat= | awk -v parent=$SERVER_PID '\$1 == parent && \$2 !~ /^Z/'"
 LIVE_CHILDREN=$(count_live_children "$SERVER_PID")
+test_command "ps -axo ppid=,stat=,pid=,command= | awk -v parent=$SERVER_PID '\$1 == parent && \$2 !~ /^Z/' | tee $OUTPUT_DIR/child-processes.txt"
 {
     printf '%s\n' "This list shows the SERVER's child processes, not the client processes."
     printf '%s\n' "以下清單顯示 server 的 child processes，不是 client processes。"
@@ -88,6 +92,7 @@ LIVE_CHILDREN=$(count_live_children "$SERVER_PID")
     ps -axo ppid=,stat=,pid=,command= | \
         awk -v parent="$SERVER_PID" '$1 == parent && $2 !~ /^Z/'
 } | tee "$OUTPUT_DIR/child-processes.txt" | tee -a "$TEST_LOG"
+test_file "Server child-process snapshot: $OUTPUT_DIR/child-processes.txt"
 
 # 等待所有 client，保留任一 client 的失敗狀態。
 test_log "[4/5] Wait for all $CLIENTS clients to finish and check their exit statuses."
@@ -119,6 +124,6 @@ if [ "$ELAPSED" -gt 8 ]; then
     exit 1
 fi
 
-test_log "PASS: at least 10 clients were handled concurrently by separate server children."
-test_log "Evidence saved in: $OUTPUT_DIR"
-test_log "Test progress and results: $TEST_LOG"
+test_pass "at least 10 clients were handled concurrently by separate server children."
+test_file "Evidence directory: $OUTPUT_DIR"
+test_file "Test progress and results: $TEST_LOG"

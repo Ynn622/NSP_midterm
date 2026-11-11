@@ -81,7 +81,7 @@ test: all baseline
 	$(MAKE) concurrency-test
 	@echo "[TEST SUITE 2/2] Robustness comparisons"
 	$(MAKE) robustness-test
-	@echo "[PASS] All test suites completed (2/2)."
+	@echo "🟢 PASS: All test suites completed (2/2)."
 
 concurrency-test: all
 	sh tests/concurrency_test.sh $(BUILD_MODE)

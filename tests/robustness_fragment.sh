@@ -40,6 +40,7 @@ start_server()
     BINARY=$1
     PORT_NUMBER=$2
     LOG_FILE=$3
+    test_command "$BINARY --port $PORT_NUMBER --timeout 2 --log-level info > $LOG_FILE 2>&1 &"
     "$BINARY" --port "$PORT_NUMBER" --timeout 2 --log-level info \
         >"$LOG_FILE" 2>&1 &
     SERVER_PID=$!
@@ -66,6 +67,7 @@ mkdir -p "$OUTPUT_DIR"
 test_log "[1/5] Start the baseline server on port 19101."
 start_server "$BASELINE" 19101 "$OUTPUT_DIR/fragment-baseline-server.log"
 test_log "[2/5] Send SYSINFO one byte every 50 ms to baseline (expected failure)."
+test_command "$CLIENT --port 19101 --fragment-delay-ms 50 sysinfo > $OUTPUT_DIR/fragment-baseline-client.log 2>&1"
 if "$CLIENT" --port 19101 --fragment-delay-ms 50 sysinfo \
     >"$OUTPUT_DIR/fragment-baseline-client.log" 2>&1; then
     BASELINE_FRAGMENT_STATUS=0
@@ -77,6 +79,7 @@ cleanup
 test_log "[3/5] Start the robust server on port 19102."
 start_server "$SERVER" 19102 "$OUTPUT_DIR/fragment-robust-server.log"
 test_log "[4/5] Send the same fragmented SYSINFO request to robust (expected success)."
+test_command "$CLIENT --port 19102 --fragment-delay-ms 50 sysinfo > $OUTPUT_DIR/fragment-robust-client.log 2>&1"
 if "$CLIENT" --port 19102 --fragment-delay-ms 50 sysinfo \
     >"$OUTPUT_DIR/fragment-robust-client.log" 2>&1; then
     ROBUST_FRAGMENT_STATUS=0
@@ -93,7 +96,7 @@ if [ "$BASELINE_FRAGMENT_STATUS" -eq 0 ] || [ "$ROBUST_FRAGMENT_STATUS" -ne 0 ];
     test_log "FAIL: fragmented-request comparison did not show the expected difference." >&2
     exit 1
 fi
-test_log "PASS: robust recv_line() reconstructed the split request."
+test_pass "robust recv_line() reconstructed the split request."
 
-test_log "Evidence saved in: $OUTPUT_DIR"
-test_log "Test progress and results: $TEST_LOG"
+test_file "Evidence directory: $OUTPUT_DIR"
+test_file "Test progress and results: $TEST_LOG"

@@ -39,6 +39,7 @@ start_server()
     BINARY=$1
     PORT_NUMBER=$2
     LOG_FILE=$3
+    test_command "$BINARY --port $PORT_NUMBER --timeout 2 --log-level info > $LOG_FILE 2>&1 &"
     "$BINARY" --port "$PORT_NUMBER" --timeout 2 --log-level info \
         >"$LOG_FILE" 2>&1 &
     SERVER_PID=$!
@@ -72,10 +73,12 @@ mkdir -p "$OUTPUT_DIR"
 test_log "[1/5] Start the baseline server on port 19103 (no request timeout)."
 start_server "$BASELINE" 19103 "$OUTPUT_DIR/timeout-baseline-server.log"
 test_log "[2/5] Connect without sending a request for 4s; count baseline children after 3s."
+test_command "$CLIENT --port 19103 --sleep-no-request 4 > $OUTPUT_DIR/timeout-baseline-client.log 2>&1 &"
 "$CLIENT" --port 19103 --sleep-no-request 4 \
     >"$OUTPUT_DIR/timeout-baseline-client.log" 2>&1 &
 NO_REQUEST_PID=$!
 sleep 3
+test_command "ps -axo ppid=,stat= | awk -v parent=$SERVER_PID '\$1 == parent && \$2 !~ /^Z/'"
 BASELINE_LIVE=$(count_live_children "$SERVER_PID")
 test_log "      Baseline live server children after 3s: $BASELINE_LIVE"
 wait "$NO_REQUEST_PID" || true
@@ -84,10 +87,12 @@ cleanup
 test_log "[3/5] Start the robust server on port 19104 (request timeout=2s)."
 start_server "$SERVER" 19104 "$OUTPUT_DIR/timeout-robust-server.log"
 test_log "[4/5] Repeat the no-request client; count robust children after 3s."
+test_command "$CLIENT --port 19104 --sleep-no-request 4 > $OUTPUT_DIR/timeout-robust-client.log 2>&1 &"
 "$CLIENT" --port 19104 --sleep-no-request 4 \
     >"$OUTPUT_DIR/timeout-robust-client.log" 2>&1 &
 NO_REQUEST_PID=$!
 sleep 3
+test_command "ps -axo ppid=,stat= | awk -v parent=$SERVER_PID '\$1 == parent && \$2 !~ /^Z/'"
 ROBUST_LIVE=$(count_live_children "$SERVER_PID")
 test_log "      Robust live server children after 3s: $ROBUST_LIVE"
 wait "$NO_REQUEST_PID" || true
@@ -101,7 +106,7 @@ if [ "$BASELINE_LIVE" -lt 1 ] || [ "$ROBUST_LIVE" -ne 0 ]; then
     test_log "FAIL: timeout comparison did not show the expected difference." >&2
     exit 1
 fi
-test_log "PASS: the robust server released the idle child after 2s."
+test_pass "the robust server released the idle child after 2s."
 
-test_log "Evidence saved in: $OUTPUT_DIR"
-test_log "Test progress and results: $TEST_LOG"
+test_file "Evidence directory: $OUTPUT_DIR"
+test_file "Test progress and results: $TEST_LOG"
